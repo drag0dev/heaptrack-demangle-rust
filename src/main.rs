@@ -1,16 +1,31 @@
-use std::{fs::OpenOptions, io::{self, Write}};
+use std::{fs::OpenOptions, io::{self, Write}, path::PathBuf};
+use clap::Parser;
 use rustc_demangle::try_demangle;
 
+pub mod args_structure;
+
 fn main() {
-    let mut args = args();
-    if args.len() < 2 {
-        println!("missing filename");
+    let args = args_structure::Cli::parse();
+
+    if args.compression_level < 1 || args.compression_level > 21 {
+        println!("error supported compression level [1, 21]");
         return;
     }
-    let file_name = args.nth(1).unwrap();
+
+    let input_filename = &args.input_path;
+    let output_filename = if args.output.is_some() {
+        args.output.unwrap()
+    } else {
+        let mut path = PathBuf::from(&args.input_path);
+        let mut temp = String::from("demangled_");
+        temp += path.file_name().unwrap().to_str().unwrap();
+        path.set_file_name(temp);
+        path.to_str().unwrap().to_owned()
+    };
+
     let input_file = OpenOptions::new()
         .read(true)
-        .open(file_name.clone());
+        .open(input_filename.clone());
 
     if input_file.is_err() {
         println!("error opening input file: {}", input_file.err().unwrap());
@@ -67,17 +82,18 @@ fn main() {
     buff.pop();
 
     // open the same file and truncate it
-    let input_file = OpenOptions::new()
+    let output_file = OpenOptions::new()
+        .create(true)
         .truncate(true)
         .write(true)
-        .open(file_name);
-    if input_file.is_err() {
-        println!("error opening output file: {}", input_file.err().unwrap());
+        .open(output_filename);
+    if output_file.is_err() {
+        println!("error opening output file: {}", output_file.err().unwrap());
         return;
     }
-    let input_file = input_file.unwrap();
+    let input_file = output_file.unwrap();
 
-    let encoder = zstd::Encoder::new(input_file, 3);
+    let encoder = zstd::Encoder::new(input_file, args.compression_level);
     if encoder.is_err() {
         println!("error feeding encoder: {}", encoder.err().unwrap());
         return;
