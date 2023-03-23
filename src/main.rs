@@ -7,13 +7,13 @@ fn main() {
         println!("missing filename");
         return;
     }
-
+    let file_name = args.nth(1).unwrap();
     let input_file = OpenOptions::new()
         .read(true)
-        .open(args.nth(1).unwrap());
+        .open(file_name.clone());
 
     if input_file.is_err() {
-        println!("error opening file: {}", input_file.err().unwrap());
+        println!("error opening input file: {}", input_file.err().unwrap());
         return;
     }
     let input_file = input_file.unwrap();
@@ -33,6 +33,7 @@ fn main() {
     }
 
     let res = decompressed.iter().map(|c| *c as char).collect::<String>();
+    let buffer_size = res.len();
     let mut lines: Vec<&str> = res.lines().collect::<Vec<&str>>();
 
     for (index, line) in res.lines().enumerate() {
@@ -53,5 +54,40 @@ fn main() {
 
             lines[index] = Box::leak(new_line.into_boxed_str());
         }
+    }
+
+    // construct a buffer
+    let mut buff: Vec<u8> = Vec::with_capacity(buffer_size);
+    for line in lines {
+        for b in line.bytes() {
+            buff.push(b);
+        }
+        buff.push(b'\n');
+    }
+    buff.pop();
+
+    // open the same file and truncate it
+    let input_file = OpenOptions::new()
+        .truncate(true)
+        .write(true)
+        .open(file_name);
+    if input_file.is_err() {
+        println!("error opening output file: {}", input_file.err().unwrap());
+        return;
+    }
+    let input_file = input_file.unwrap();
+
+    let encoder = zstd::Encoder::new(input_file, 3);
+    if encoder.is_err() {
+        println!("error feeding encoder: {}", encoder.err().unwrap());
+        return;
+    }
+    let mut encoder = encoder.unwrap();
+
+    // compress
+    let res = io::copy(&mut buff.as_slice(), &mut encoder);
+    if res.is_err() {
+        println!("error feeding encoder: {}", res.err().unwrap());
+        return;
     }
 }
