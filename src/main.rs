@@ -37,14 +37,20 @@ fn main() {
 
     for (index, line) in res.lines().enumerate() {
         if line.starts_with('s') && line.matches(" ").count() > 1 {
-            let mut new_line = line.split(" ");
-            let mangled_name = new_line.nth(2).unwrap();
+            let line_parts = line.split(" ").collect::<Vec<&str>>();
+
+            let mangled_name = line_parts[2];
             let unmangled_name = try_demangle(mangled_name);
             if unmangled_name.is_err() { continue; }
             let unmangled_name = unmangled_name.unwrap();
-            let new_line = new_line.collect::<String>();
 
-            let new_line = new_line + &unmangled_name.to_string();
+            let mut new_line = String::new();
+            new_line += line_parts[0];
+            new_line += " ";
+            new_line += line_parts[1];
+            new_line += " ";
+            new_line += &unmangled_name.to_string();
+
             lines[index] = Box::leak(new_line.into_boxed_str());
         }
     }
