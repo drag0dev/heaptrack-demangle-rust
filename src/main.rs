@@ -1,4 +1,8 @@
-use std::{fs::OpenOptions, io::{self, Write}, path::PathBuf};
+use std::{
+    fs::OpenOptions,
+    io::{self, Write},
+    path::PathBuf
+};
 use clap::Parser;
 use rustc_demangle::try_demangle;
 
@@ -6,13 +10,13 @@ pub mod args_structure;
 
 fn main() {
     let args = args_structure::Cli::parse();
-
     if args.compression_level < 1 || args.compression_level > 21 {
-        println!("error supported compression level [1, 21]");
+        println!("error: supported compression levels [1, 21]");
         return;
     }
 
     let input_filename = &args.input_path;
+
     let output_filename = if args.output.is_some() {
         args.output.unwrap()
     } else {
@@ -28,14 +32,14 @@ fn main() {
         .open(input_filename.clone());
 
     if input_file.is_err() {
-        println!("error opening input file: {}", input_file.err().unwrap());
+        println!("error: opening input file: {}", input_file.err().unwrap());
         return;
     }
     let input_file = input_file.unwrap();
 
     let decoder = zstd::Decoder::new(input_file);
     if decoder.is_err() {
-        println!("error feeding decoder: {}", decoder.err().unwrap());
+        println!("error: instantiating decoder: {}", decoder.err().unwrap());
         return;
     }
     let mut decoder = decoder.unwrap();
@@ -43,14 +47,18 @@ fn main() {
     let mut decompressed: Vec<u8> = Vec::new();
     let res = io::copy(&mut decoder, &mut decompressed);
     if res.is_err() {
-        println!("error decompressing: {}", res.err().unwrap());
+        println!("error: feeding decoder: {}", res.err().unwrap());
         return;
     }
 
     let res = decompressed.iter().map(|c| *c as char).collect::<String>();
     let buffer_size = res.len();
+
+    // using &str to avoid making a lot of Strings
     let mut lines: Vec<&str> = res.lines().collect::<Vec<&str>>();
 
+    // look for lines that start with 's' and trying to demangle third word in that line
+    // if it fails to demangle line is skipped
     for (index, line) in res.lines().enumerate() {
         if line.starts_with('s') && line.matches(" ").count() > 1 {
             let line_parts = line.split(" ").collect::<Vec<&str>>();
@@ -67,6 +75,7 @@ fn main() {
             new_line += " ";
             new_line += &unmangled_name.to_string();
 
+            // leaking memory to be able to modify line in place
             lines[index] = Box::leak(new_line.into_boxed_str());
         }
     }
@@ -88,26 +97,25 @@ fn main() {
         .write(true)
         .open(output_filename);
     if output_file.is_err() {
-        println!("error opening output file: {}", output_file.err().unwrap());
+        println!("error: opening output file: {}", output_file.err().unwrap());
         return;
     }
     let input_file = output_file.unwrap();
 
     let encoder = zstd::Encoder::new(input_file, args.compression_level);
     if encoder.is_err() {
-        println!("error feeding encoder: {}", encoder.err().unwrap());
+        println!("error: instantiating encoder: {}", encoder.err().unwrap());
         return;
     }
     let mut encoder = encoder.unwrap();
     let res = encoder.write(buff.as_slice());
     if res.is_err() {
-        println!("error feeding encoder: {}", res.err().unwrap());
+        println!("error: feeding encoder: {}", res.err().unwrap());
         return;
     }
 
-    let res = encoder.finish();
-    if res.is_err() {
-        println!("error finishing: {}", res.err().unwrap());
+    if encoder.finish().is_err() {
+        println!("error: finishing encoder: {}", res.err().unwrap());
         return;
     }
 }
