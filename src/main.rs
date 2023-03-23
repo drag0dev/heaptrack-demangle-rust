@@ -1,4 +1,4 @@
-use std::{env::args, fs::OpenOptions, io};
+use std::{fs::OpenOptions, io::{self, Write}};
 use rustc_demangle::try_demangle;
 
 fn main() {
@@ -83,11 +83,15 @@ fn main() {
         return;
     }
     let mut encoder = encoder.unwrap();
-
-    // compress
-    let res = io::copy(&mut buff.as_slice(), &mut encoder);
+    let res = encoder.write(buff.as_slice());
     if res.is_err() {
         println!("error feeding encoder: {}", res.err().unwrap());
+        return;
+    }
+
+    let res = encoder.finish();
+    if res.is_err() {
+        println!("error finishing: {}", res.err().unwrap());
         return;
     }
 }
