@@ -9,3 +9,10 @@ edition = "2021"
 clap = { version = "4.1.12", features = ["derive"] }
 rustc-demangle = "0.1.21"
 zstd = "0.12.3"
+
+[profile.release]
+lto = true
+
+[[bin]]
+name = "rdemangle-heaptrack"
+path = "./src/main.rs"
