@@ -13,7 +13,7 @@ pub struct Cli {
     )]
     pub output: Option<String>,
 
-    #[arg(value_name = "zstd compression level of the output file (default 3)",
+    #[arg(value_name = "zstd compression level of the output file",
         short = 'l',
         long = "level",
         default_value_t = 3,
